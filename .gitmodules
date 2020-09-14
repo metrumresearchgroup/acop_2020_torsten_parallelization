@@ -1,0 +1,4 @@
+[submodule "cmdstan"]
+	path = cmdstan
+	url = git@github.com:metrumresearchgroup/cmdstan.git
+        branch = acop_2020_multilevel_parallel
