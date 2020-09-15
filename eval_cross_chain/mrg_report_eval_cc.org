@@ -1,0 +1,394 @@
+#+TITLE: Speed up population Bayesian inference by combining cross-chain warmup and within-chain parallelism
+#+LATEX_CLASS: amsart
+#+LATEX_CLASS_OPTIONS: [11pt, reqno, oneside]
+#+OPTIONS: toc:nil
+
+#+SETUPFILE: mrgtheme.org
+
+* Introduction
+With increasing adoption of Bayesian inference to
+pharmacometric(PMX) modeling, it has become evident that
+high-performance computing(HPC) must be utilized for large-scale
+models to be accessible, and inference framework based on Markov Chain
+Monte Carlo(MCMC) must improve efficiency through multiple
+channels. For example, probabilistic programming language Stan cite:carpenter_stan_2017
+uses efficient samplers such as the No-U-Turn
+Sampler(NUTS) cite:hoffman_no-u-turn_2014, and provide src_stan[:exports code]{map_rect} functions
+to parallelize expensive likelihood evaluation.
+
+The scope of the work presented here is to improve Bayesian inference
+efficiency of population models. The work is based on Torsten
+cite:Torsten, a library of Stan functions that
+simplifies PMX modeling and
+extends the range of models that may be implemented. We address two
+aspects of the efficiency problem. First, we propose a dynamic warmup
+approach, as an alternative to current Stan's warmup where a fixed
+number(default 1000) of iterations are performed. Second, we combine
+the new warmup algorithm with existing within-chain parallelization
+functionality of Torsten cite:torsten_pmx_group to formulate a /multilevel/ parallel method
+that utilizes dynamic warmup /and/ within-chain parallelism to speed
+up simulation.
+
+# #+BEGIN_latex
+# \href{https://discourse.mc-stan.org/t/new-adaptive-warmup-proposal-looking-for-feedback}{discourse.mc-stan.org/t/new-adaptive-warmup-proposal-looking-for-feedback}
+# #+END_latex
+
+* Cross-chain warmup
+** Algorithm & implementation
+The standard practice of Stan is to perform a fixed number of warmup
+iterations. With this practice, the efficacy of the warmup is unknown
+/a priori/ and often warmup is unncessarily long as user oversubscribe warmup iterations.
+The proposed warmup algorithm tries to avoid this by checking potential scale reduction
+coefficients ($\hat{R}$) and effective sample sizes (ESS)
+cite:vehtari_rank-normalization_2019 . Specifically, for warmup we
+propose(see also Figure ref:cc-diagram).
+#+caption: Cross-chain warmup algorithm label:cc-diagram
+#+attr_latex: :width \textwidth
+[[./figure/cross_chain_diagram.pdf]]
+
+1. Given a fixed window size $w$(default 100) and initial buffer size(default 75), the sampler iterates during warmup with stepsize adapted as in regular warmup runs.
+2. At the end of a window, we aggregate the joint posterior probability =lp__= from all the chains and calculate corresponding $\hat{R}$ as well as ESS. 
+   Specifically, when the warmup reaches the last iteration of window
+   $n$, we calculate $\hat{R}^i$ and $\text{ESS}^i$, $i=1\dots,n$. The
+   superscript $i$ indicates that the quantity is calculated based on
+   =lp__= aggregated from all the chains, using the iterations from
+   window $i$, $i+1$, \dots, $n$. For example, with default window
+   size $w=100$, when warmup reaches iteration 300, we calculate
+   $\hat{R}^i$ and $\text{ESS}^i$ for $i=1, 2, 3$, so that
+
+   $\hat{R}^1$ and $\text{ESS}^1$ are based on warmup iteration 1 to 300;
+
+   $\hat{R}^2$ and $\text{ESS}^2$ are based on warmup iteration 101 to 300;
+
+   $\hat{R}^3$ and $\text{ESS}^3$ are based on warmup iteration 201 to 300.
+
+3. At the end of window $n$, with predefined target value $\hat{R}^{0}$ and ESS$^{0}$, from ${1, \dots, n}$,  we select $j$ such that
+   \begin{equation}
+   \text{ESS}^j > \text{ESS}^i,\quad \forall i\neq j, \quad 1\le i\le n.
+   \end{equation}
+   Namely, we select $j$ so that it has the maximum ESS. A new metric
+   is calculated by aggregating samples from
+   
+   \begin{equation*}   
+      \text{window } j, \text{window } j+1, ..., \text{window } n
+   \end{equation*}
+   from all the chains, and a new stepsize is calculated by taking geometric mean
+   of chain stepsizes. The new metric and stepsize are used in future iterations for all the chains.
+   If, in addition, $j$ satisfies
+   \begin{equation}
+   \begin{aligned}
+   \hat{R}^j < \hat{R}^0,\\
+   \text{ESS}^j > \text{ESS}^0,
+   \end{aligned}
+   \end{equation}
+   the warmup is considered complete((/converges/). Otherwise warmup continues until
+   the end of the next window and step 2-3 are repeated.
+4. After convergences, the warmup
+   continues into terminal buffer(50 iterations by default). As in
+   standard Stan warmup, in this buffer the metric is no longer
+   updated while stepsize is further adapted.
+
+Unlike current warmup scheme, the above proposal requires
+communication among the chains, hence we call it /cross-chain warmup/.
+The implementation is based on Torsten's parallel setup using Message
+Passing Interface (MPI). In
+a cross-chain warmup run, all chains move forward independently except
+at the end of a window, where samples are aggregated from the chains
+to calculate $\hat{R}^i$ and ESS$^i$ and new metric and stepsize are
+distributed to the chains.
+After warmup the sampler moves into independent post-warmup sampling stage
+with no more cross-chain communications.
+
+The latest version of cross-chain warmup implementation can be found
+at
+
+** Performance evaluation
+We compare the two warmup schemes by running several models
+from \href{https://github.com/MansMeg/posteriordb}{posteriordb} and \href{https://github.com/metrumresearchgroup/Torsten/tree/master/example-models}{Torsten} repo. For each model, we compare the
+effect of warmup on 
+- total number of leapfrog integration steps in warmup
+- total number of leapfrog integration steps in sampling
+- number of leapfrog integration steps in per each warmup iteration
+- number of leapfrog integration steps in per each sampling iteration
+- minimum ESS$_{\text{bulk}}$ per iteration
+- minimum ESS$_{\text{tail}}$ per iteration
+- minimum ESS$_{\text{bulk}}$ per leapfrog step
+- minimum ESS$_{\text{tail}}$ per leapfrog step
+- maximum wall time
+
+We run each model runs with 10 random seeds 
+#+BEGIN_SRC R
+seed <- seq(8235121, 8235130)
+#+END_SRC
+and plot the above
+quantities' the average(barplot)
+and standard deviation(error bar).
+
+For a src_r[:exports code]{stanfit} object, we use the following R
+function evaluate cross-chain performance.
+#+BEGIN_SRC r :exports code
+  ## Based on Aki's script to evaluate ESS
+  perf.cc <- function(stanfit) {
+      (n_chain = stanfit@sim$chains)
+      (n_warmup = stanfit@sim$warmup)
+      n_iter = stanfit@sim$iter-n_warmup
+      sampler_params <- rstan:::get_sampler_params(stanfit, inc_warmup = TRUE)
+      leapfrogs = sapply(sampler_params, function(x) x[, "n_leapfrog__"])
+      (sum_warmup_leapfrogs = sum(leapfrogs[1:n_warmup,]))
+      (sum_leapfrogs = sum(leapfrogs[n_warmup+(1:n_iter),]))
+      (mean_warmup_leapfrogs = sum_warmup_leapfrogs/n_warmup / n_chain)
+      (mean_leapfrogs = sum_leapfrogs/n_iter / n_chain)
+      mon = rstan::monitor(as.array(stanfit), warmup=0, print=FALSE)
+      (maxrhat = max(mon[,'Rhat']))
+      bulk_ess_per_iter = mon[,'Bulk_ESS']/n_iter / n_chain
+      tail_ess_per_iter = mon[,'Tail_ESS']/n_iter / n_chain
+      bulk_ess_per_leapfrog = mon[,'Bulk_ESS']/sum_leapfrogs
+      tail_ess_per_leapfrog = mon[,'Tail_ESS']/sum_leapfrogs
+      min(bulk_ess_per_iter)
+      min(tail_ess_per_iter)
+      min(bulk_ess_per_leapfrog)
+      min(tail_ess_per_leapfrog)
+      elapsed <- as.data.frame(rstan::get_elapsed_time(stanfit))
+      (stepsizes = sapply(sampler_params, function(x) x[, "stepsize__"])[n_iter,])
+
+      res <- data.frame(run = c(sum_warmup_leapfrogs / n_chain, sum_leapfrogs / n_chain,
+                                     mean_warmup_leapfrogs, mean_leapfrogs,
+                                     min(bulk_ess_per_iter),
+                                min(tail_ess_per_iter),
+                                min(bulk_ess_per_leapfrog),
+                                min(tail_ess_per_leapfrog),
+                                max(elapsed$warmup + elapsed$sample)))
+      row.names(res) <- c("leapfrogs(warmup)", "leapfrogs(sampling)",
+                          "leapfrogs(warmup)/iter", "leapfrogs(sampling)/iter",
+                          "min(bulk_ESS/iter)", "min(tail_ESS/iter)",
+                          "min(bulk_ESS/leapfrog)", "min(tail_ESS/leapfrog)",
+                          "max(elapsed_time)")
+      return(res)
+  }
+#+END_SRC
+
+For profiling cross-chain performance of a particular model, we compare
+fit results from different target ESS as well as regular runs(4 chains
+with 1000 warmup iterations in each chain). Figures in this section
+are generated by
+#+BEGIN_SRC r :exports code
+  multiple.run.ess("cmdstan/examples", "model-name", 4, 4, "hostfile", seq(8235121, 8235130), c(100,200,400))
+#+END_SRC
+See src_bash[:exports code]{script/run_cc.R} for details of
+functions. Equivalently, one can run the model using accompanying src_bash[:exports code]{cmdstan}.
+To activate cross-chain feature, compile model with src_bash[:exports code]{cmdstan/make/local} set as
+#+BEGIN_SRC bash :exports code
+  STANC2=true
+  MPI_ADAPTED_WARMUP=1
+  TBB_CXX_TYPE=clang
+#+END_SRC
+and run it with
+#+BEGIN_SRC bash
+  # we use MPICH options in this report.
+  mpiexec -n 4 -l -f hostfile ./model-name sample save_warmup=1 adapt cross_chain_ess=target_ess data file=model-name.data.R init=init.R random seed=seed id=i
+#+END_SRC
+For regular run the model should be compiled with src_bash[:exports code]{cmdstan/make/local} set as
+#+BEGIN_SRC bash :exports code
+  STANC2=true
+#+END_SRC
+All wall time in this report are measured in seconds.
+
+#+caption: Cross-chain warmup performance comparison: arK model
+#+attr_latex: :width \textwidth
+[[./figure/cross_chain_ess_effect_arK.png]]
+
+#+caption: Cross-chain warmup performance comparison: arK-arK model
+#+attr_latex: :width \textwidth
+[[./figure/cross_chain_ess_effect_arK-arK.png]]
+
+#+caption: Cross-chain warmup performance comparison: eight schools model
+#+attr_latex: :width \textwidth
+[[./figure/cross_chain_ess_effect_eight_schools.png]]
+
+#+caption: Cross-chain warmup performance comparison: garch-garch11 model
+#+attr_latex: :width \textwidth
+[[./figure/cross_chain_ess_effect_garch-garch11.png]]
+
+#+caption: Cross-chain warmup performance comparison: radon model
+#+attr_latex: :width \textwidth
+[[./figure/cross_chain_ess_effect_radon.png]]
+
+#+caption: Cross-chain warmup performance comparison: SIR model
+#+attr_latex: :width \textwidth
+[[./figure/cross_chain_ess_effect_sir.png]]
+
+#+caption: Cross-chain warmup performance comparison: chemical reaction model
+#+attr_latex: :width \textwidth
+[[./figure/cross_chain_ess_effect_chem.png]]
+
+
+* Multilevel parallelism: combining cross-chain warmup and within-chain parallelization
+Combining cross-chain warmup and
+within-chain parallelization, we are able to design a framework of
+/multilevel parallelism/ for Bayesian inference of population
+models. Orthogonal to the above warmup algorithm, /within-chain/
+parallelization implemented in Stan
+and Torsten does not induce communication across chains but distributes a
+heavy-lifting modeling task to mutiple processes in a single
+chain. In Torsten this within-chain strategy focuses on solving ODEs
+in population model. The corresponding functions are cite:torsten_pmx_group
+#+BEGIN_SRC stan
+  pmx_solve_group_rk45
+  pmx_solve_group_adams
+  pmx_solve_group_bdf
+#+END_SRC 
+
+** Algorithm & implementation
+Our multilevel framework has an upper and lower level of parallelization(Figure ref:multilevel-diagram). The upper
+level handles the cross-chain warmup by running parallel chains and
+updating metric and stepsize. Chains exchange
+information only at the end of each window at this level. 
+
+The lower level of within-chain parallelization occurs more
+frequently: with every new set of parameter samples, NUTS updates the likelihhod
+by solving the ODEs in the population model, and Torsten's group
+solvers distribute the population to multiple processes, with each
+processe handling one or several subjects' ODE systems.
+
+#+caption: Multilevel parallelism for ODE-based population models. A simplified version of Figure 1, the lower diagram shows the cross-chain warmup through multiple windows. In within-chain parallelization, as shown in the upper diagram, each chain has its own parameter samples(indicated by different colors), and dedicated processes for solving the population model. label:multilevel-diagram
+#+attr_latex: :width \textwidth
+[[./figure/within_chain_parallel_diagram.pdf]]
+
+** Example
+To demonstrate the above multilevel method, we apply it to a
+time-to-event model for the time to the first grade 2+ peripheral neuropathy (PN)
+event in patients treated with an antibody-drug conjugate (ADC)
+delivering monomethyl auristatin E (MMAE). We call it
+Time-To-PN(TTPN) model, and analyze data using a
+simplified version of the model reported in
+cite:lu_time--event_2017. We consider three treatment arms:
+fauxlatuzumab vedotin 1.2, 1.8 and 2.4 mg/kg IV boluses q3w x 6 doses,
+with 20 patients per treatment arm. In this model,
+each patient's PK is described by an effective compartment model(one-compartment),
+and PD by a linear model. The likelihood for time to first 2+ PN event
+is described by a hazard function that depends on the concentration
+effect through Weibull distribution. Two unknowns from
+PK model and the cumulative hazard form a three-component
+ODE system. Each evaluation of likelihood requires solving this
+3-system for every patient. 
+
+In Torsten's model, ODEs corresponding to the entire
+population can be solved by a single call of src_stan[:exports
+code]{pmx_solve_group_rk45} function. The three parameters of the
+model are:
+- $k_{e0}$ in effective compartment model.
+- $\alpha$ the coefficient of linear PD model.
+- $\beta$ Weibull distribution scale parameter.
+
+To activate multilevel feature, compile model with src_bash[:exports code]{cmdstan/make/local} set as
+#+BEGIN_SRC bash :exports code
+  STANC2=true
+  TORSTEN_MPI=1
+  MPI_ADAPTED_WARMUP=1
+  TBB_CXX_TYPE=clang
+#+END_SRC
+and run it with
+#+BEGIN_SRC bash
+  # we use MPICH options in this report.
+  mpiexec -n nproc -l -f hostfile ./model-name sample save_warmup=1 adapt cross_chain_ess=target_ess data file=model-name.data.R init=init.R random seed=seed id=i
+#+END_SRC
+
+Similar to previous section, Figure shows performance of cross-chain and
+regular runs based on target ESS = 400. Unlike in previous models, we
+did not performe runs with multiple seed or target ESS to avoid long
+computing time. One can make conclusion consistent with the other
+models, that the cross-chain warmup reduce total run time without
+compromising ESS.
+
+#+caption: Cross-chain warmup performance comparison(Target ESS 400): TTPN model. 
+#+attr_latex: :width \textwidth
+[[./figure/ttpn2_ess_400_cross_chain_vs_seq.png]]
+
+Next, we apply multilevel method to TTPN model with a fixed target ESS
+= 400, by running the model
+with 4 chains using $n_{\text{proc}} = 8, 16, 32, 60, 80$
+processes. Equivalently, there are
+$n_{\text{proc\_per\_chain}} = 2, 4, 8, 15, 20$
+processes per chain so that within-chain parallelization can be utilized.
+With population size 60, each process handles solution of
+$n_{\text{id}} = 30, 15, 7, 4, 3$
+subjects' ODE system, respectively.
+
+To show parallel scaling performance, we collect src_c[:exports code]{stanfit} objects of the benchmark runs
+and plot their wall time speedup against regular Stan runs. With all
+runs having 1000 post-warmup sampling iterations, in
+multilevel runs the number of warmup iterations is determinted at
+runtime, while both within-chain parallel runs and regular Stan runs
+have 1000 warmup iterations. Among 4 chains in a run, we use the
+one with maximum total walltime(in seconds) as performance measure, as
+in practice usually further model evaluation becomes accessible only
+after all chains finish.
+
+#+BEGIN_SRC r :exports none
+  library(dplyr)
+  library(rstan)
+
+  all.fits <- c(ttpn2.multilevel.nproc.4, # stanfits from multilevel runs
+                ttpn2.multilevel.nproc.8,
+                ttpn2.multilevel.nproc.16,
+                ttpn2.multilevel.nproc.32,
+                ttpn2.multilevel.nproc.60,
+                ttpn2.within.chain.nproc.1, # stanfits from within-chai parallel runs
+                ttpn2.within.chain.nproc.2,
+                ttpn2.within.chain.nproc.4,
+                ttpn2.within.chain.nproc.8,
+                ttpn2.within.chain.nproc.15)
+
+  max.total.time.fit <-
+      function(stanfit){stanfit %>% rstan::get_elapsed_time(.) %>% as.data.frame() %>% 
+                            mutate(total = warmup + sample) %>% filter(total == max(total))}
+
+  regular.elapsed <- max.total.time.fit(ttpn2.seq)
+  speedup <- lapply(all.fits,
+                    FUN=max.total.time.fit) %>% do.call(rbind.data.frame, .) %>% 
+      mutate(parallelisation=c("multilevel","multilevel","multilevel","multilevel","multilevel","within-chain","within-chain","within-chain","within-chain","within-chain")) %>% 
+      mutate(nproc.per.chain=c(1,2,4,8,15,1,2,4,8,15)) %>%
+      mutate(warmup.speedup = regular.elapsed$warmup / warmup) %>%
+      mutate(sample.speedup = regular.elapsed$sample / sample) %>%
+      mutate(total.speedup = regular.elapsed$total / total) %>%
+      select(parallelisation, nproc.per.chain, warmup.speedup, sample.speedup, total.speedup) %>%
+      rename(warmup = warmup.speedup, sample = sample.speedup, total = total.speedup)
+
+  speedup.long <- reshape2::melt(speedup, id = c("nproc.per.chain","parallelisation"),
+                                 measure = c("warmup", "sample", "total"),
+                                 value.name = "speedup")
+  ggplot(speedup.long, aes(x=nproc.per.chain, y=speedup, color=parallelisation)) +
+      geom_line() + geom_point() +
+      facet_wrap(~ variable,scales="free_y") + scale_y_log10(breaks=c(1,2,4,8)) +
+      scale_x_log10(breaks=c(1,2,4,8,15)) +
+      xlab("number of processes per chain") +
+      theme(legend.position="bottom")
+
+  ggsave(file.path("eval_cross_chain","figure", "ttpn2_perf_benchmark.pdf"))
+#+END_SRC
+
+As shown in Figure ref:cc-diagram, both muiltilevel and
+within-chai-only parallel runs exhibit good scaling up to 60
+processes(15 processes per chain $\times$ 4 chains)[fn:1]. In
+addition, cross-chain warmup enables multilevel runs to be more
+efficient, with a steady ~20% performance gain when 4+ processes per
+chain are applied. Since two parallel setup produce similar
+post-warmup sampling efficiency, this gain is entirely contributed by
+our new warmup algorithm.
+
+#+caption: multilevel parallelisation performance of TTPN model(target ESS=400). Speedup for warmup, sampling, and total(warmup + sampling) are based on corresponding regular run wall time. label:ttpn_perf
+#+attr_latex: :width \textwidth
+[[./figure/ttpn2_perf_benchmark.pdf]]
+
+[fn:1] We did not apply more than 60 processes in benchmark in order
+to reduce cluster computing cost in this study. Previous study on within-chain parallelization
+cite:torsten_pmx_group shows that reward of using more cores
+diminishes.
+
+* Conclusion
+Multilevel parallelism using in Stan and Torsten
+significantly improves computational efficiency and extends
+the range of models that may be practically implemented.
+
+\bibliography{torsten}
+bibliographystyle:siam
