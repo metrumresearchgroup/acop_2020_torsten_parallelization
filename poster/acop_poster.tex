@@ -42,10 +42,8 @@
 {
 headerborder=closed, % Adds a border around the header of content boxes
 colspacing=1em, % Column spacing
-bgColorOne=MRGGreen, % Background color for the gradient on the left side of the poster
-bgColorTwo=MRGGreen, % Background color for the gradient on the right side of the poster
 borderColor=MRGGreen, % Border color
-headerColorOne=black, % Background color for the header in the content boxes (left side)
+headerColorOne=MRGGreen, % Background color for the header in the content boxes (left side)
 headerColorTwo=MRGGreen, % Background color for the header in the content boxes (right side)
 headerFontColor=MRGGreen, % Text color for the header text in the content boxes
 boxColorOne=white, % Background color of the content boxes
@@ -62,9 +60,11 @@ linewidth=2pt % Width of the border lines around content boxes
 %----------------------------------------------------------------------------------------
 %
 {\includegraphics[height=4em]{graphics/logo.jpg}} % First university/lab logo on the left
-{\bf\textsc{Speed up populational Bayesian inference by combining cross-chain warmup and within-chain parallelism}\vspace{0.5em}} % Poster title
-{\textsc{\{ John Smith, James Smith and Jane Smith \} \hspace{12pt} University and Department Name}} % Author names and institution
-{\includegraphics[height=4em]{graphics/logo.jpg}} % Second university/lab logo on the right
+{\bf{Speed up populational Bayesian inference by combining cross-chain warmup and within-chain parallelization}\vspace{0.8em}} % Poster title
+{\textsc{ Yi Zhang\textsuperscript{1}, William R. Gillespie\textsuperscript{1}, Ben Bales\textsuperscript{2}, Aki Vehtari\textsuperscript{3} \hspace{12pt} \normalsize{1. Metrum Research Group, 2. Columbia University, 3. Aalto University}}} % Author names and institution
+{\includegraphics[height=6em]{graphics/alumnae_columbia.png}\\
+\includegraphics[height=6em]{graphics/Aalto_EN_13_BLACK_1_Original.png}
+} % Second university/lab logo on the right
 
 
 %----------------------------------------------------------------------------------------
@@ -114,7 +114,7 @@ linewidth=2pt % Width of the border lines around content boxes
 %	Cross-chain
 %----------------------------------------------------------------------------------------
 
-\headerbox{Cross-chain warmup}{name=warmup,column=0,span=2,below=objective,bottomaligned=conclusion}{
+\headerbox{Cross-chain warmup}{name=warmup,column=0,span=2,below=objective,above=bottom,aligned=conclusion}{
 \begin{multicols}{2}
 \vspace{1em}
 The efficacy of standard Stan practice of running a fixed number of warmup
