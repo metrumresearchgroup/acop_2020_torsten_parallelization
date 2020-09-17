@@ -13,7 +13,7 @@ algorithm can be found at Stan discussion forum
 https://discourse.mc-stan.org/t/new-adaptive-warmup-proposal-looking-for-feedback/12039
 https://discourse.mc-stan.org/t/cross-chain-warmup-adaptation-using-mpi/12912
 
-* Setup =cmdstan= runs
+* Setup =cmdstan= and build models
 For regular runs, set =cmdstan/make/local=
 #+BEGIN_SRC sh
   STANC2=true

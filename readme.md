@@ -1,16 +1,16 @@
-- [Setup `cmdstan` runs](#org3570482)
-- [Cross-chain warmup benchmarks](#org4738b82)
-- [Multilevel example: TTPN model](#org3ccfc39)
-  - [Multilevel runs using `nproc` processes, with `nproc/4` processes per chain](#org6e254ca)
-  - [Within-chain parallel runs using `nproc` processes per chain](#org72faa6b)
-  - [4 regular runs as 4 chains](#org6e1b405)
+- [Setup `cmdstan` and build models](#org1cc541c)
+- [Cross-chain warmup benchmarks](#orgc860334)
+- [Multilevel example: TTPN model](#org7e4c6b3)
+  - [Multilevel runs using `nproc` processes, with `nproc/4` processes per chain](#org2c122d5)
+  - [Within-chain parallel runs using `nproc` processes per chain](#orge1a924c)
+  - [4 regular runs as 4 chains](#org3a9d138)
 
 This repo contains details of our ACoP11 poster "Speed up populational Bayesian inference by combining cross-chain warmup and within-chain parallelization"(Yi Zhang, William R. Gillespie, Ben Bales, Aki Vehtari). The `acop_2020_multilevel_parallel` branch of `cmdstan` directory points to the source code used in this study. It is implemented on top of existing Torsten within-chain parallel ODE group solvers and an experimental warmup algorithm. More discussions on the new warmup algorithm can be found at Stan discussion forum <https://discourse.mc-stan.org/t/new-adaptive-warmup-proposal-looking-for-feedback/12039> <https://discourse.mc-stan.org/t/cross-chain-warmup-adaptation-using-mpi/12912>
 
 
-<a id="org3570482"></a>
+<a id="org1cc541c"></a>
 
-# Setup `cmdstan` runs
+# Setup `cmdstan` and build models
 
 For regular runs, set `cmdstan/make/local`
 
@@ -66,7 +66,7 @@ adapt cross_chain_ess           # target ESS, default 200
 All models in this study are located in `cmdstan/examples/`.
 
 
-<a id="org4738b82"></a>
+<a id="orgc860334"></a>
 
 # Cross-chain warmup benchmarks
 
@@ -86,12 +86,12 @@ multiple.run.ess("examples", "arK", 4, 4, "hostfile", seq(8235121, 8235130), c(1
 performs MPI runs (`mpiexec -n 4`) using cross-chain as well as regular builds, with random seeds \({8235121,\dots,8235130}\) and target ESS 100, 200, and 400, on machine(s) specified by `hostfile`.
 
 
-<a id="org3ccfc39"></a>
+<a id="org7e4c6b3"></a>
 
 # Multilevel example: TTPN model
 
 
-<a id="org6e254ca"></a>
+<a id="org2c122d5"></a>
 
 ## Multilevel runs using `nproc` processes, with `nproc/4` processes per chain
 
@@ -101,7 +101,7 @@ mpiexec -n nproc -l -f hostfile ./ttpn2_group sample adapt num_cross_chains=4 cr
 ```
 
 
-<a id="org72faa6b"></a>
+<a id="orge1a924c"></a>
 
 ## Within-chain parallel runs using `nproc` processes per chain
 
@@ -114,7 +114,7 @@ mpiexec -n nproc -l -f hostfile ./ttpn2_group sample data file=ttpn2.data.R init
 ```
 
 
-<a id="org6e1b405"></a>
+<a id="org3a9d138"></a>
 
 ## 4 regular runs as 4 chains
 
