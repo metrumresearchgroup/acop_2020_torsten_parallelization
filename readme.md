@@ -1,11 +1,14 @@
-- [Setup `cmdstan` runs](#orgdcf4228)
-- [Cross-chain warmup benchmarks](#orgdb39bbd)
-- [Multilevel example: TTPN model](#org853cedb)
+- [Setup `cmdstan` runs](#org3570482)
+- [Cross-chain warmup benchmarks](#org4738b82)
+- [Multilevel example: TTPN model](#org3ccfc39)
+  - [Multilevel runs using `nproc` processes, with `nproc/4` processes per chain](#org6e254ca)
+  - [Within-chain parallel runs using `nproc` processes per chain](#org72faa6b)
+  - [4 regular runs as 4 chains](#org6e1b405)
 
 This repo contains details of our ACoP11 poster "Speed up populational Bayesian inference by combining cross-chain warmup and within-chain parallelization"(Yi Zhang, William R. Gillespie, Ben Bales, Aki Vehtari). The `acop_2020_multilevel_parallel` branch of `cmdstan` directory points to the source code used in this study. It is implemented on top of existing Torsten within-chain parallel ODE group solvers and an experimental warmup algorithm. More discussions on the new warmup algorithm can be found at Stan discussion forum <https://discourse.mc-stan.org/t/new-adaptive-warmup-proposal-looking-for-feedback/12039> <https://discourse.mc-stan.org/t/cross-chain-warmup-adaptation-using-mpi/12912>
 
 
-<a id="orgdcf4228"></a>
+<a id="org3570482"></a>
 
 # Setup `cmdstan` runs
 
@@ -32,7 +35,7 @@ TORSTEN_MPI=1
 TBB_CXX_TYPE=clang              # or gcc
 ```
 
-To build and run a model, say `cmdstan/examples/arK/arK.stan`, do
+To build and run a model(we use `cmdstan/examples/arK/arK.stan` as example through out), do
 
 ```sh
 cd cmdstan
@@ -60,12 +63,117 @@ adapt cross_chain_rhat          # target Rhat, default 1.05
 adapt cross_chain_ess           # target ESS, default 200
 ```
 
+All models in this study are located in `cmdstan/examples/`.
 
-<a id="orgdb39bbd"></a>
+
+<a id="org4738b82"></a>
 
 # Cross-chain warmup benchmarks
 
+The following models from [posteriordb](https://github.com/MansMeg/posteriordb) are used for benchmark: arK, arK-arK, eight<sub>schools</sub>, garch-garch11, radon, sblrc-blr, SIR. `scripts/run_cc.R` contains some scripts used for parallel runs as well as summary generation. In particular, given a `stanfit` object, the performance summary can be obtained by
 
-<a id="org853cedb"></a>
+```r
+source("scripts/run_cc.R")
+perf.cc(stanfit)
+```
+
+With cross-chain build binary `arK` and regular build binary `arK_seq`,
+
+```r
+multiple.run.ess("examples", "arK", 4, 4, "hostfile", seq(8235121, 8235130), c(100,200,400))
+```
+
+performs MPI runs (`mpiexec -n 4`) using cross-chain as well as regular builds, with random seeds \({8235121,\dots,8235130}\) and target ESS 100, 200, and 400, on machine(s) specified by `hostfile`.
+
+
+<a id="org3ccfc39"></a>
 
 # Multilevel example: TTPN model
+
+
+<a id="org6e254ca"></a>
+
+## Multilevel runs using `nproc` processes, with `nproc/4` processes per chain
+
+```bash
+# ttpn2_group is built with TORSTEN_MPI=1 and MPI_ADAPTED_WARMUP=1.
+mpiexec -n nproc -l -f hostfile ./ttpn2_group sample adapt num_cross_chains=4 cross_chain_ess=400 data file=ttpn2.data.R init=init.R random seed=8325121
+```
+
+
+<a id="org72faa6b"></a>
+
+## Within-chain parallel runs using `nproc` processes per chain
+
+```bash
+# ttpn2_group is built with TORSTEN_MPI=1.
+mpiexec -n nproc -l -f hostfile ./ttpn2_group sample data file=ttpn2.data.R init=mpi.0.init.R random seed=8325121 id=0 output file=output.1.csv
+mpiexec -n nproc -l -f hostfile ./ttpn2_group sample data file=ttpn2.data.R init=mpi.1.init.R random seed=8325121 id=1 output file=output.2.csv
+mpiexec -n nproc -l -f hostfile ./ttpn2_group sample data file=ttpn2.data.R init=mpi.2.init.R random seed=8325121 id=2 output file=output.3.csv
+mpiexec -n nproc -l -f hostfile ./ttpn2_group sample data file=ttpn2.data.R init=mpi.3.init.R random seed=8325121 id=3 output file=output.4.csv
+```
+
+
+<a id="org6e1b405"></a>
+
+## 4 regular runs as 4 chains
+
+```bash
+# ttpn2_group is built without TORSTEN_MPI=1 or MPI_ADAPTED_WARMUP=1
+./ttpn2_group sample data file=ttpn2.data.R init=mpi.0.init.R random seed=8325121 id=0 output file=output.1.csv
+./ttpn2_group sample data file=ttpn2.data.R init=mpi.1.init.R random seed=8325121 id=1 output file=output.2.csv
+./ttpn2_group sample data file=ttpn2.data.R init=mpi.2.init.R random seed=8325121 id=2 output file=output.3.csv
+./ttpn2_group sample data file=ttpn2.data.R init=mpi.3.init.R random seed=8325121 id=3 output file=output.4.csv
+```
+
+One can examine the `.RData` at root path of this repo for corresponding `stanfit` objects used for speedup study:
+
+```bash
+ttpn2.multilevel.nproc.60       # nproc = 60
+ttpn2.multilevel.nproc.32       # nproc = 32
+ttpn2.multilevel.nproc.16       # nproc = 16
+ttpn2.multilevel.nproc.8        # nproc = 8
+ttpn2.multilevel.nproc.4        # nproc = 4
+
+ttpn2.within.chain.nproc.15     # nproc per chain = 15
+ttpn2.within.chain.nproc.8      # nproc per chain = 8
+ttpn2.within.chain.nproc.4      # nproc per chain = 4
+ttpn2.within.chain.nproc.2      # nproc per chain = 2
+ttpn2.within.chain.nproc.1      # nproc per chain = 1
+
+ttpn2.seq                       # 4-chain regular runs
+```
+
+and generate speedup plot by
+
+```r
+library(dplyr)
+library(rstan)
+
+max.total.time.fit <-
+    function(stanfit){stanfit %>% rstan::get_elapsed_time(.) %>% as.data.frame() %>% 
+                          mutate(total = warmup + sample) %>% filter(total == max(total))}
+
+regular.elapsed <- max.total.time.fit(ttpn2.seq)
+
+all.runs <- c(ttpn2.multilevel.nproc.4, ttpn2.multilevel.nproc.8, ttpn2.multilevel.nproc.16, ttpn2.multilevel.nproc.32, ttpn2.multilevel.nproc.60, ttpn2.within.chain.nproc.1, ttpn2.within.chain.nproc.2, ttpn2.within.chain.nproc.4, ttpn2.within.chain.nproc.8, ttpn2.within.chain.nproc.15)
+speedup <- lapply(all.runs, FUN=max.total.time) %>% do.call(rbind.data.frame, .) %>% 
+    mutate(parallelisation=c("multilevel","multilevel","multilevel","multilevel","multilevel","within-chain","within-chain","within-chain","within-chain","within-chain")) %>% 
+    mutate(nproc.per.chain=c(1,2,4,8,15,1,2,4,8,15)) %>%
+    mutate(warmup.speedup = regular.elapsed$warmup / warmup) %>%
+    mutate(sample.speedup = regular.elapsed$sample / sample) %>%
+    mutate(total.speedup = regular.elapsed$total / total) %>%
+    select(parallelisation, nproc.per.chain, warmup.speedup, sample.speedup, total.speedup) %>%
+    rename(warmup = warmup.speedup, sample = sample.speedup, total = total.speedup)
+
+speedup.long <- reshape2::melt(speedup, id = c("nproc.per.chain","parallelisation"),
+                               measure = c("warmup", "sample", "total"),
+                               value.name = "speedup")
+
+ggplot(speedup.long, aes(x=nproc.per.chain, y=speedup, color=parallelisation)) +
+    geom_line() + geom_point() +
+    facet_wrap(~ variable,scales="free_y") + scale_y_log10(breaks=c(1,2,4,8)) +
+    scale_x_log10(breaks=c(1,2,4,8,15)) +
+    xlab("number of processes per chain") +
+    theme(legend.position="bottom")
+```
