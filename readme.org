@@ -55,7 +55,7 @@ In particular, cross-chain warmup builds come with additional options
 #+END_SRC
 All models in this study are located in =cmdstan/examples/=.
 * Cross-chain warmup benchmarks
-The following models from [[https://github.com/MansMeg/posteriordb][posteriordb]] are used for benchmark: arK, arK-arK, eight_schools, garch-garch11,
+The following models from [[https://github.com/MansMeg/posteriordb][posteriordb]] are used for benchmark: arK, arK-arK, eight\_schools, garch-garch11,
 radon, sblrc-blr, SIR. =scripts/run_cc.R= contains some scripts used
 for parallel runs as well as summary generation. In particular, given
 a =stanfit= object, the performance summary can be obtained by
@@ -69,15 +69,24 @@ With cross-chain build binary =arK= and regular build binary
   multiple.run.ess("examples", "arK", 4, 4, "hostfile", seq(8235121, 8235130), c(100,200,400))
 #+END_SRC
 performs MPI runs (=mpiexec -n 4=) using cross-chain as well as regular
-builds, with random seeds ${8235121,\dots,8235130}$ and target ESS 100, 200, and 400, on machine(s)
+builds, with random seeds 8235121-8235130 and target ESS 100, 200, and 400, on machine(s)
 specified by =hostfile=.
 * Multilevel example: TTPN model
-** Multilevel runs using =nproc= processes, with =nproc/4= processes per chain
+Parallel speedup benchmark is based on 4-chain runs with total =nproc=
+processes on a =METWORX= /workflow/, so that =nproc/4= processes are
+assigned to each chain. All computing nodes are equipped
+with 2 vCPUs and 8 GB RAM. Each process occupies a single node(bind to
+socket). Note that in multilevel runs =np= in =mpiexec -n np= command
+designate the total number of processes for 4 chains, while in
+within-chain parallel runs it referes to the number of processes for a
+single chain. In reference regular runs, each chain is solved by a
+single processes.
+** Multilevel runs
 #+BEGIN_SRC bash
   # ttpn2_group is built with TORSTEN_MPI=1 and MPI_ADAPTED_WARMUP=1.
   mpiexec -n nproc -l -f hostfile ./ttpn2_group sample adapt num_cross_chains=4 cross_chain_ess=400 data file=ttpn2.data.R init=init.R random seed=8325121
 #+END_SRC
-** Within-chain parallel runs using =nproc= processes per chain
+** Within-chain parallel runs
 #+BEGIN_SRC bash
   # ttpn2_group is built with TORSTEN_MPI=1.
   mpiexec -n nproc -l -f hostfile ./ttpn2_group sample data file=ttpn2.data.R init=mpi.0.init.R random seed=8325121 id=0 output file=output.1.csv
