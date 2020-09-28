@@ -77,37 +77,12 @@ linewidth=2pt % Width of the border lines around content boxes
 \begin{itemize}
 \item Improve the performance of Bayesian inference of population
   models by designing a multilevel parallel scheme that combines
-  a cross-chain warmup algorithm in Probabilistic programming language
+  a cross-chain warmup algorithm in probabilistic programming language
   Stan \cite{carpenter_stan_2017} and Torsten's within-chain parallel
   group ODE solvers \cite{Torsten}\cite{torsten_pmx_group}.
 \item Demonstrate that the new approach significantly improves large PKPD model simulation efficiency.
 \end{itemize}
 
-% With increasing adoption of Bayesian inference to
-% pharmacometric(PMX) modeling, it has become evident that
-% high-performance computing(HPC) must be utilized for large-scale
-% models to be accessible, and inference framework based on Markov Chain
-% Monte Carlo(MCMC) must improve efficiency through multiple
-% channels. For example, probabilistic programming language Stan \cite{carpenter_stan_2017}
-% uses efficient samplers such as the No-U-Turn
-% Sampler(NUTS) \cite{hoffman_no-u-turn_2014}, and provide \texttt{\texttt{map\_rect}} functions
-% to parallelize expensive likelihood evaluation.
-
-% The scope of the work presented here is to improve Bayesian inference
-% efficiency of population models. The work is based on Torsten
-% \cite{Torsten}, a library of Stan functions that
-% simplifies PMX modeling and
-% extends the range of models that may be implemented. We address two
-% aspects of the efficiency problem. First, we propose a dynamic warmup
-% approach, as an alternative to current Stan's warmup where a fixed
-% number(default 1000) of iterations are performed. Second, we combine
-% the new warmup algorithm with existing within-chain parallelization
-% functionality of Torsten \cite{torsten_pmx_group} to formulate a \emph{multilevel} parallel method
-% that utilizes dynamic warmup \emph{and} within-chain parallelism to speed
-% up simulation.
-% \end{multicols}
-
-% \vspace{0.2em}
 }
 
 %----------------------------------------------------------------------------------------
@@ -119,13 +94,13 @@ linewidth=2pt % Width of the border lines around content boxes
 \vspace{1em}
 The efficacy of standard Stan practice of running a fixed number of warmup
 iterations is unknown \emph{a priori}. We propose a new algorithm
-in order to evaluate warmup quality and avoid unncessary iterations, by checking potential scale reduction
+in order to evaluate warmup quality dynamically and avoid unncessary iterations, by checking potential scale reduction
 coefficients (\(\hat{R}\)) and effective sample sizes (ESS)
 \cite{vehtari_rank-normalization_2019}:
 \begin{ColFigure}
  \centering
  \includegraphics[width=\linewidth]{figure/cross_chain_diagram.pdf}
- \captionof{figure}{Cross-chain warmup}
+ \captionof{figure}{\emph{Cross-chain} algorithm is named after the fact that the chains communicate regularly during warmup.}
 \end{ColFigure}
 
 \begin{enumerate}
@@ -141,7 +116,7 @@ and calculate a new metric using samples from corresponding
 windows. Determine \emph{convergence} by checking if $\hat{R}^j < \hat{R}^0$ and $\text{ESS}^j > \text{ESS}^0$. 
 If converges, move to post-warmup sampling, otherwise repeat step 2.
 \end{enumerate}
-We call it \emph{cross-chain warmup} as it involves communicating chains.
+
 
 \vspace{1em}
 Benchmarks are performed with different target ESS and
@@ -217,7 +192,7 @@ maximum wall time(in seconds) \\
 \subsection*{Method}
 \begin{center}
 \includegraphics[width=\linewidth]{./figure/within_chain_parallel_diagram.pdf}
-\captionof{figure}{Multilevel parallelism for ODE-based population models. A simplified version of Figure 1, the lower diagram shows the cross-chain warmup through multiple windows. In within-chain parallelization, as shown in the upper diagram, each chain has its own parameter samples(indicated by different colors), and dedicated processes for solving the population model. \label{multilevel-diagram}}
+\captionof{figure}{Multilevel parallelism for ODE-based population models. A simplified version of Figure 1, the lower diagram shows the cross-chain warmup through multiple windows. In within-chain parallelization, as shown in the upper diagram, each chain has its own parameter samples(indicated by different colors), and dedicated processes for solving the population model. Thus the parallel computing is based on cross-chain level and within-chain level.\label{multilevel-diagram}}
 \end{center}
 
 \begin{center}
@@ -225,8 +200,8 @@ maximum wall time(in seconds) \\
 \hline
 Level & Parallel operation & Parallel communication \\
 \hline
-1 & parallel chains with cross-chain warmup & at the end each warmup window \\
-2 & within-chain parallel group ODE solver & when likelihhood is evaluated \\
+1 & Cross-chain warmup & At the end of warmup windows \\
+2 & Within-chain parallel ODE solver & During likelihhood evaluation \\
 \hline
 \end{tabular}
 \captionof{table}{A framework of
@@ -287,6 +262,20 @@ compromising ESS, leading to ~15\% wall time improvement.
 \end{center}
 
 \subsubsection*{Parallel speedup}
+Speedup is investigated by running the model
+with 4 chains using \(n_{\text{proc}} = 4, 8, 16, 32, 60\)
+processes. Equivalently, there are
+1, 2, 4, 8, 15 processes per chain for within-chain parallelization.
+With population size 60, this is also equivalent to have each process handle the solution of
+60, 30, 15, 8, 4 subjects' ODE system, respectively.
+\begin{itemize}
+\item Both muiltilevel and within-chain-only parallel runs scale near-linearly up to 60
+  processes(15 processes per chain \(\times\) 4 chains).
+\item In the range of \(n_{\text{proc}}=32, 60, 80\), multilevel runs
+  exhibit a steady \textasciitilde 20\% performance improvement, completely
+  contributed by cross-chain warmup.
+\end{itemize}
+
 \begin{center}
 \includegraphics[width=\linewidth]{./figure/ttpn2_perf_benchmark.pdf}
 \captionof{figure}{Multilevel scheme parallel performance: TTPN
@@ -300,22 +289,6 @@ in practice usually further model evaluation becomes accessible only
 after all chains finish.}
 \label{fig:ttpn_speedup}
 \end{center}
-
-Speedup is investigated by running the model
-with 4 chains using \(n_{\text{proc}} = 4, 8, 16, 32, 60\)
-processes. Equivalently, there are
-\(n_{\text{proc\_per\_chain}} = 1, 2, 4, 8, 15\)
-processes per chain so that within-chain parallelization can be utilized.
-With population size 60, each process handles solution of
-\(n_{\text{id}} = 60, 30, 15, 8, 4\)
-subjects' ODE system, respectively.
-\begin{itemize}
-\item Both muiltilevel and within-chain-only parallel runs scale near-linearly up to 60
-  processes(15 processes per chain \(\times\) 4 chains).
-\item In the range of \(n_{\text{proc}}=32, 60, 80\), multilevel runs
-  exhibit a steady \textasciitilde 20\% performance improvement, completely
-  contributed by cross-chain warmup.
-\end{itemize}
 
 \end{multicols}
 \vspace{0.5em}
@@ -337,11 +310,12 @@ subjects' ODE system, respectively.
 %----------------------------------------------------------------------------------------
 
 \headerbox{Conclusion and future work}{name=conclusion,column=3,below=multilevel}{
-Multilevel parallelism using in Stan and Torsten
-significantly improves computational efficiency and extends
-the range of models that may be practically implemented. A natual
-follow-up of this study is to seek higher efficiency by maintaining
-target ESS while increasing the number of parallel chains during warmup.
+  \begin{itemize}
+  \item Multilevel parallelism significantly improves computational efficiency and extends
+    the range of models that may be practically implemented.
+  \item Our planed follow-up study is to seek higher efficiency by maintaining
+    target ESS while increasing the number of parallel chains during warmup.
+  \end{itemize}
 }
 
 \headerbox{See also}{name=github_repo,headerborder=none,textborder=none,column=3,below=conclusion,above=bottom} {
