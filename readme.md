@@ -1,14 +1,14 @@
-- [Setup `cmdstan` and build models](#orgc499efc)
-- [Cross-chain warmup benchmarks](#org602edfa)
-- [Multilevel example: TTPN model](#org468832d)
-  - [Multilevel runs](#orgc2a4213)
-  - [Within-chain parallel runs](#orgefa6fb7)
-  - [4 regular runs as 4 chains](#org44e181b)
+- [Setup `cmdstan` and build models](#orgf7c3e43)
+- [Cross-chain warmup benchmarks](#org8f0e356)
+- [Multilevel example: TTPN model](#org2366c10)
+  - [Multilevel runs](#org076a5ef)
+  - [Within-chain parallel runs](#org581ea00)
+  - [4 regular runs as 4 chains](#orgc9027a9)
 
 This repo contains details of our ACoP11 poster "Speed up populational Bayesian inference by combining cross-chain warmup and within-chain parallelization"(Yi Zhang, William R. Gillespie, Ben Bales, Aki Vehtari). The `acop_2020_multilevel_parallel` branch of `cmdstan` directory points to the source code used in this study. It is implemented on top of existing Torsten within-chain parallel ODE group solvers and an experimental warmup algorithm. More discussions on the new warmup algorithm can be found at Stan discussion forum <https://discourse.mc-stan.org/t/new-adaptive-warmup-proposal-looking-for-feedback/12039> <https://discourse.mc-stan.org/t/cross-chain-warmup-adaptation-using-mpi/12912>
 
 
-<a id="orgc499efc"></a>
+<a id="orgf7c3e43"></a>
 
 # Setup `cmdstan` and build models
 
@@ -66,11 +66,11 @@ adapt cross_chain_ess           # target ESS, default 200
 All models in this study are located in `cmdstan/examples/`.
 
 
-<a id="org602edfa"></a>
+<a id="org8f0e356"></a>
 
 # Cross-chain warmup benchmarks
 
-The following models from [posteriordb](https://github.com/MansMeg/posteriordb) are used for benchmark: arK, arK-arK, eight\\<sub>schools</sub>, garch-garch11, radon, sblrc-blr, SIR. `scripts/run_cc.R` contains some scripts used for parallel runs as well as summary generation. In particular, given a `stanfit` object, the performance summary can be obtained by
+The following models from [posteriordb](https://github.com/MansMeg/posteriordb) are used for benchmark: arK, arK-arK, eight\_schools, garch-garch11, radon, sblrc-blr, SIR. `scripts/run_cc.R` contains some scripts used for parallel runs as well as summary generation. In particular, given a `stanfit` object, the performance summary can be obtained by
 
 ```r
 source("scripts/run_cc.R")
@@ -86,14 +86,14 @@ multiple.run.ess("examples", "arK", 4, 4, "hostfile", seq(8235121, 8235130), c(1
 performs MPI runs (`mpiexec -n 4`) using cross-chain as well as regular builds, with random seeds 8235121-8235130 and target ESS 100, 200, and 400, on machine(s) specified by `hostfile`.
 
 
-<a id="org468832d"></a>
+<a id="org2366c10"></a>
 
 # Multilevel example: TTPN model
 
 Parallel speedup benchmark is based on 4-chain runs with total `nproc` processes on a `METWORX` *workflow*, so that `nproc/4` processes are assigned to each chain. All computing nodes are equipped with 2 vCPUs and 8 GB RAM. Each process occupies a single node(bind to socket). Note that in multilevel runs `np` in `mpiexec -n np` command designate the total number of processes for 4 chains, while in within-chain parallel runs it referes to the number of processes for a single chain. In reference regular runs, each chain is solved by a single processes.
 
 
-<a id="orgc2a4213"></a>
+<a id="org076a5ef"></a>
 
 ## Multilevel runs
 
@@ -103,7 +103,7 @@ mpiexec -n nproc -l -f hostfile ./ttpn2_group sample adapt num_cross_chains=4 cr
 ```
 
 
-<a id="orgefa6fb7"></a>
+<a id="org581ea00"></a>
 
 ## Within-chain parallel runs
 
@@ -116,7 +116,7 @@ mpiexec -n nproc -l -f hostfile ./ttpn2_group sample data file=ttpn2.data.R init
 ```
 
 
-<a id="org44e181b"></a>
+<a id="orgc9027a9"></a>
 
 ## 4 regular runs as 4 chains
 

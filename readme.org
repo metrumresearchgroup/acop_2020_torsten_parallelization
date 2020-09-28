@@ -1,6 +1,7 @@
 #+TITLE: Speed up populational Bayesian inference by combining cross-chain warmup and within-chain parallelization
 #+AUTHOR: Yi Zhang
 #+email: yiz@metrumrg.com
+#+options: ^:nil
 
 This repo contains details of our ACoP11 poster "Speed up populational
 Bayesian inference by combining cross-chain warmup and within-chain
@@ -55,7 +56,7 @@ In particular, cross-chain warmup builds come with additional options
 #+END_SRC
 All models in this study are located in =cmdstan/examples/=.
 * Cross-chain warmup benchmarks
-The following models from [[https://github.com/MansMeg/posteriordb][posteriordb]] are used for benchmark: arK, arK-arK, eight\_schools, garch-garch11,
+The following models from [[https://github.com/MansMeg/posteriordb][posteriordb]] are used for benchmark: arK, arK-arK, eight_schools, garch-garch11,
 radon, sblrc-blr, SIR. =scripts/run_cc.R= contains some scripts used
 for parallel runs as well as summary generation. In particular, given
 a =stanfit= object, the performance summary can be obtained by
