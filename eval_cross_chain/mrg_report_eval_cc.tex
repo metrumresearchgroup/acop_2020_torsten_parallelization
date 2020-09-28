@@ -1,4 +1,4 @@
-% Created 2020-09-14 Mon 22:20
+% Created 2020-09-28 Mon 14:06
 % Intended LaTeX compiler: pdflatex
 \documentclass[11pt, reqno, oneside]{amsart}
               \newcommand\subtitle[1]{\newcommand\mrgsubtitle{#1}}
@@ -55,7 +55,7 @@
 \maketitle
 
 \section{Introduction}
-\label{sec:orga196c19}
+\label{sec:orge05e8df}
 With increasing adoption of Bayesian inference to
 pharmacometric(PMX) modeling, it has become evident that
 high-performance computing(HPC) must be utilized for large-scale
@@ -79,10 +79,14 @@ functionality of Torsten \cite{torsten_pmx_group} to formulate a \emph{multileve
 that utilizes dynamic warmup \emph{and} within-chain parallelism to speed
 up simulation.
 
+Discussions related to the proposal can be found at Stan forum
+\cite{cc_discusion,cc_mpi_discusion}. Source code, model, and data used
+in this study can be found at acompanying repo \cite{cc_acop_repo}.
+
 \section{Cross-chain warmup}
-\label{sec:org5b4c5f7}
+\label{sec:orgce1162e}
 \subsection{Algorithm \& implementation}
-\label{sec:orgf690079}
+\label{sec:orgfce4604}
 The standard practice of Stan is to perform a fixed number of warmup
 iterations. With this practice, the efficacy of the warmup is unknown
 \emph{a priori} and often warmup is unncessarily long as user oversubscribe warmup iterations.
@@ -155,7 +159,7 @@ The latest version of cross-chain warmup implementation can be found
 at
 
 \subsection{Performance evaluation}
-\label{sec:orgeefee9a}
+\label{sec:org23ace1a}
 We compare the two warmup schemes by running several models
 from \href{https://github.com/MansMeg/posteriordb}{posteriordb} and \href{https://github.com/metrumresearchgroup/Torsten/tree/master/example-models}{Torsten} repo. For each model, we compare the
 effect of warmup on 
@@ -292,7 +296,7 @@ All wall time in this report are measured in seconds.
 
 
 \section{Multilevel parallelism: combining cross-chain warmup and within-chain parallelization}
-\label{sec:orgf72ae3d}
+\label{sec:org55bc3f7}
 Combining cross-chain warmup and
 within-chain parallelization, we are able to design a framework of
 \emph{multilevel parallelism} for Bayesian inference of population
@@ -309,7 +313,7 @@ pmx_solve_group_bdf
 \end{minted}
 
 \subsection{Algorithm \& implementation}
-\label{sec:org7d1fe53}
+\label{sec:org73bc4d1}
 Our multilevel framework has an upper and lower level of parallelization(Figure \ref{multilevel-diagram}). The upper
 level handles the cross-chain warmup by running parallel chains and
 updating metric and stepsize. Chains exchange
@@ -328,7 +332,7 @@ processe handling one or several subjects' ODE systems.
 \end{figure}
 
 \subsection{Example}
-\label{sec:orgadc9a94}
+\label{sec:org358ba2f}
 To demonstrate the above multilevel method, we apply it to a
 time-to-event model for the time to the first grade 2+ peripheral neuropathy (PN)
 event in patients treated with an antibody-drug conjugate (ADC)
@@ -401,8 +405,8 @@ one with maximum total walltime(in seconds) as performance measure, as
 in practice usually further model evaluation becomes accessible only
 after all chains finish.
 
-As shown in Figure \ref{cc-diagram}, both muiltilevel and
-within-chai-only parallel runs exhibit good scaling up to 60
+As shown in Figure \ref{ttpn_perf}, both muiltilevel and
+within-chain-only parallel runs exhibit good scaling up to 60
 processes(15 processes per chain \(\times\) 4 chains)\footnote{We did not apply more than 60 processes in benchmark in order
 to reduce cluster computing cost in this study. Previous study on within-chain parallelization
 \cite{torsten_pmx_group} shows that reward of using more cores
@@ -419,11 +423,21 @@ our new warmup algorithm.
 \caption{multilevel parallelisation performance of TTPN model(target ESS=400). Speedup for warmup, sampling, and total(warmup + sampling) are based on corresponding regular run wall time. \label{ttpn_perf}}
 \end{figure}
 
-\section{Conclusion}
-\label{sec:org25e5b88}
-Multilevel parallelism using in Stan and Torsten
-significantly improves computational efficiency and extends
-the range of models that may be practically implemented.
+\section{Conclusion and future work}
+\label{sec:orgdf17708}
+We note two benefits of the new multilevel algorithm:
+\begin{enumerate}
+\item It significantly improves computational efficiency and extends the range of models that may be practically implemented.
+\item Cross-chain warmup quantifies warmup efficacy by providing informative runtime summary.
+\end{enumerate}
+
+A natural followup study would be to increase the number of parallel
+chains in warmup, in the hope that we can maintain warmup quality
+while further reduce the number of iterations in each chain. Note that
+doing this in the multilevel setting induces burderns on computing
+resources: adding \(n\) more chains when each chain's within-chain
+parallel solver uses \(m\) processes requires adding \(n\times m\) processes in computing.
+
 
 \bibliography{torsten}
 \bibliographystyle{siam}

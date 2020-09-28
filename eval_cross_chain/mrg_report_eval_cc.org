@@ -29,9 +29,9 @@ functionality of Torsten cite:torsten_pmx_group to formulate a /multilevel/ para
 that utilizes dynamic warmup /and/ within-chain parallelism to speed
 up simulation.
 
-# #+BEGIN_latex
-# \href{https://discourse.mc-stan.org/t/new-adaptive-warmup-proposal-looking-for-feedback}{discourse.mc-stan.org/t/new-adaptive-warmup-proposal-looking-for-feedback}
-# #+END_latex
+Discussions related to the proposal can be found at Stan forum
+cite:cc_discusion,cc_mpi_discusion. Source code, model, and data used
+in this study can be found at acompanying repo cite:cc_acop_repo.
 
 * Cross-chain warmup
 ** Algorithm & implementation
@@ -367,8 +367,8 @@ after all chains finish.
   ggsave(file.path("eval_cross_chain","figure", "ttpn2_perf_benchmark.pdf"))
 #+END_SRC
 
-As shown in Figure ref:cc-diagram, both muiltilevel and
-within-chai-only parallel runs exhibit good scaling up to 60
+As shown in Figure ref:ttpn_perf, both muiltilevel and
+within-chain-only parallel runs exhibit good scaling up to 60
 processes(15 processes per chain $\times$ 4 chains)[fn:1]. In
 addition, cross-chain warmup enables multilevel runs to be more
 efficient, with a steady ~20% performance gain when 4+ processes per
@@ -385,10 +385,18 @@ to reduce cluster computing cost in this study. Previous study on within-chain p
 cite:torsten_pmx_group shows that reward of using more cores
 diminishes.
 
-* Conclusion
-Multilevel parallelism using in Stan and Torsten
-significantly improves computational efficiency and extends
-the range of models that may be practically implemented.
+* Conclusion and future work
+We note two benefits of the new multilevel algorithm:
+1. It significantly improves computational efficiency and extends the range of models that may be practically implemented.
+2. Cross-chain warmup quantifies warmup efficacy by providing informative runtime summary.
+
+A natural followup study would be to increase the number of parallel
+chains in warmup, in the hope that we can maintain warmup quality
+while further reduce the number of iterations in each chain. Note that
+doing this in the multilevel setting induces burderns on computing
+resources: adding $n$ more chains when each chain's within-chain
+parallel solver uses $m$ processes requires adding $n\times m$ processes in computing.
+
 
 \bibliography{torsten}
 bibliographystyle:siam
