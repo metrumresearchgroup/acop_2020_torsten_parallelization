@@ -78,8 +78,8 @@ processes on a =METWORX= /workflow/, so that =nproc/4= processes are
 assigned to each chain. All computing nodes are equipped
 with 2 vCPUs and 8 GB RAM. Each process occupies a single node(bind to
 socket). Note that in multilevel runs =np= in =mpiexec -n np= command
-designate the total number of processes for 4 chains, while in
-within-chain parallel runs it referes to the number of processes for a
+designates the total number of processes for 4 chains, while in
+within-chain parallel runs the number of processes for a
 single chain. In reference regular runs, each chain is solved by a
 single processes.
 ** Multilevel runs

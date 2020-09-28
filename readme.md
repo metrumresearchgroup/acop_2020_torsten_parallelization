@@ -1,14 +1,14 @@
-- [Setup `cmdstan` and build models](#orgf7c3e43)
-- [Cross-chain warmup benchmarks](#org8f0e356)
-- [Multilevel example: TTPN model](#org2366c10)
-  - [Multilevel runs](#org076a5ef)
-  - [Within-chain parallel runs](#org581ea00)
-  - [4 regular runs as 4 chains](#orgc9027a9)
+- [Setup `cmdstan` and build models](#org03c65bf)
+- [Cross-chain warmup benchmarks](#orgf725798)
+- [Multilevel example: TTPN model](#org09d0def)
+  - [Multilevel runs](#org4293c5d)
+  - [Within-chain parallel runs](#orgcc829c8)
+  - [4 regular runs as 4 chains](#orgbe95993)
 
 This repo contains details of our ACoP11 poster "Speed up populational Bayesian inference by combining cross-chain warmup and within-chain parallelization"(Yi Zhang, William R. Gillespie, Ben Bales, Aki Vehtari). The `acop_2020_multilevel_parallel` branch of `cmdstan` directory points to the source code used in this study. It is implemented on top of existing Torsten within-chain parallel ODE group solvers and an experimental warmup algorithm. More discussions on the new warmup algorithm can be found at Stan discussion forum <https://discourse.mc-stan.org/t/new-adaptive-warmup-proposal-looking-for-feedback/12039> <https://discourse.mc-stan.org/t/cross-chain-warmup-adaptation-using-mpi/12912>
 
 
-<a id="orgf7c3e43"></a>
+<a id="org03c65bf"></a>
 
 # Setup `cmdstan` and build models
 
@@ -66,7 +66,7 @@ adapt cross_chain_ess           # target ESS, default 200
 All models in this study are located in `cmdstan/examples/`.
 
 
-<a id="org8f0e356"></a>
+<a id="orgf725798"></a>
 
 # Cross-chain warmup benchmarks
 
@@ -86,14 +86,14 @@ multiple.run.ess("examples", "arK", 4, 4, "hostfile", seq(8235121, 8235130), c(1
 performs MPI runs (`mpiexec -n 4`) using cross-chain as well as regular builds, with random seeds 8235121-8235130 and target ESS 100, 200, and 400, on machine(s) specified by `hostfile`.
 
 
-<a id="org2366c10"></a>
+<a id="org09d0def"></a>
 
 # Multilevel example: TTPN model
 
-Parallel speedup benchmark is based on 4-chain runs with total `nproc` processes on a `METWORX` *workflow*, so that `nproc/4` processes are assigned to each chain. All computing nodes are equipped with 2 vCPUs and 8 GB RAM. Each process occupies a single node(bind to socket). Note that in multilevel runs `np` in `mpiexec -n np` command designate the total number of processes for 4 chains, while in within-chain parallel runs it referes to the number of processes for a single chain. In reference regular runs, each chain is solved by a single processes.
+Parallel speedup benchmark is based on 4-chain runs with total `nproc` processes on a `METWORX` *workflow*, so that `nproc/4` processes are assigned to each chain. All computing nodes are equipped with 2 vCPUs and 8 GB RAM. Each process occupies a single node(bind to socket). Note that in multilevel runs `np` in `mpiexec -n np` command designates the total number of processes for 4 chains, while in within-chain parallel runs the number of processes for a single chain. In reference regular runs, each chain is solved by a single processes.
 
 
-<a id="org076a5ef"></a>
+<a id="org4293c5d"></a>
 
 ## Multilevel runs
 
@@ -103,7 +103,7 @@ mpiexec -n nproc -l -f hostfile ./ttpn2_group sample adapt num_cross_chains=4 cr
 ```
 
 
-<a id="org581ea00"></a>
+<a id="orgcc829c8"></a>
 
 ## Within-chain parallel runs
 
@@ -116,7 +116,7 @@ mpiexec -n nproc -l -f hostfile ./ttpn2_group sample data file=ttpn2.data.R init
 ```
 
 
-<a id="orgc9027a9"></a>
+<a id="orgbe95993"></a>
 
 ## 4 regular runs as 4 chains
 
