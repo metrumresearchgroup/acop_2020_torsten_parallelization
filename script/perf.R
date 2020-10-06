@@ -18,19 +18,19 @@ max.total.time <-
 regular.elapsed <- max.total.time(seq.run)
 speedup <- lapply(c(cross.chain.runs, within.chain.runs),
                   FUN=max.total.time) %>% do.call(rbind.data.frame, .) %>% 
-    mutate(parallelisation=c("multilevel","multilevel","multilevel","multilevel","multilevel","within-chain","within-chain","within-chain","within-chain","within-chain")) %>% 
+    mutate(parallelization=c("multilevel","multilevel","multilevel","multilevel","multilevel","within-chain","within-chain","within-chain","within-chain","within-chain")) %>% 
     mutate(nproc.per.chain=c(1,2,4,8,15,1,2,4,8,15)) %>%
     mutate(warmup.speedup = regular.elapsed$warmup / warmup) %>%
     mutate(sample.speedup = regular.elapsed$sample / sample) %>%
     mutate(total.speedup = regular.elapsed$total / total) %>%
-    select(parallelisation, nproc.per.chain, warmup.speedup, sample.speedup, total.speedup) %>%
+    select(parallelization, nproc.per.chain, warmup.speedup, sample.speedup, total.speedup) %>%
     rename(warmup = warmup.speedup, sample = sample.speedup, total = total.speedup)
 
-speedup.long <- reshape2::melt(speedup, id = c("nproc.per.chain","parallelisation"),
+speedup.long <- reshape2::melt(speedup, id = c("nproc.per.chain","parallelization"),
                                measure = c("warmup", "sample", "total"),
                                value.name = "speedup")
     
-ggplot(speedup.long, aes(x=nproc.per.chain, y=speedup, color=parallelisation)) +
+ggplot(speedup.long, aes(x=nproc.per.chain, y=speedup, color=parallelization)) +
     geom_line() + geom_point() +
     facet_wrap(~ variable,scales="free_y") + scale_y_log10(breaks=c(1,2,4,8)) +
     scale_x_log10(breaks=c(1,2,4,8,15)) +

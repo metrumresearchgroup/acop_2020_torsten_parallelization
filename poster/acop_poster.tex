@@ -60,7 +60,7 @@ linewidth=2pt % Width of the border lines around content boxes
 %----------------------------------------------------------------------------------------
 %
 {\includegraphics[height=4em]{graphics/logo.jpg}} % First university/lab logo on the left
-{\bf{Speed up populational Bayesian inference by combining cross-chain warmup and within-chain parallelization}\vspace{0.8em}} % Poster title
+{\bf{Speed up population Bayesian inference by combining cross-chain warmup and within-chain parallelization}\vspace{0.8em}} % Poster title
 {\textsc{ Yi Zhang\textsuperscript{1}, William R. Gillespie\textsuperscript{1}, Ben Bales\textsuperscript{2}, Aki Vehtari\textsuperscript{3} \hspace{12pt} \normalsize{1. Metrum Research Group, 2. Columbia University, 3. Aalto University}}} % Author names and institution
 {\includegraphics[height=6em]{graphics/alumnae_columbia.png}\\
 \includegraphics[height=4em]{graphics/Aalto_EN_13_BLACK_1_Original.png}
@@ -74,15 +74,14 @@ linewidth=2pt % Width of the border lines around content boxes
 \headerbox{Objectives}{name=objective,column=0,row=0,span=2}{
 % \begin{multicols}{2}
 % \vspace{1em}
-\begin{itemize}
-\item Improve the performance of Bayesian inference of population
-  models by designing a multilevel parallel scheme that combines
-  a cross-chain warmup algorithm in probabilistic programming language
-  Stan \cite{carpenter_stan_2017} and Torsten's within-chain parallel
-  group ODE solvers \cite{Torsten}\cite{torsten_pmx_group}.
-\item Demonstrate that the new approach significantly improves large PKPD model simulation efficiency.
-\end{itemize}
 
+{\color{MRGGreen} \textbf{\textit{Automate}}} Markov Chain Monte Carlo (MCMC) convergence assessment to adaptively transition from warmup to sampling.
+
+{\color{MRGGreen} \textbf{\textit{Improve}}} adaptive tuning of Hamiltonian Monte Carlo (HMC) parameters.
+
+{\color{MRGGreen} \textbf{\textit{Speed up}}} population model inference by combining new warmup method with within-chain parallelization\cite{Torsten}\cite{torsten_pmx_group}.
+
+% \end{multicols}
 }
 
 %----------------------------------------------------------------------------------------
@@ -92,15 +91,19 @@ linewidth=2pt % Width of the border lines around content boxes
 \headerbox{Cross-chain warmup}{name=warmup,column=0,span=2,below=objective,above=bottom,aligned=conclusion}{
 \begin{multicols}{2}
 \vspace{1em}
-The efficacy of standard Stan practice of running a fixed number of warmup
-iterations is unknown \emph{a priori}. We propose a new algorithm
-in order to evaluate warmup quality dynamically and avoid unncessary iterations, by checking potential scale reduction
-coefficients (\(\hat{R}\)) and effective sample sizes (ESS)
-\cite{vehtari_rank-normalization_2019}:
+Researchers have long been seeking a measure to evaluate MCMC warmup
+quality. A common practice of MCMC toolkits such as
+Stan\cite{carpenter_stan_2017} is to prescribe a fixed number of
+warmup iterations, of which the efficiency/sufficiency is revealed only
+\emph{at the end} of simulation, through quantities such as potential scale reduction
+coefficients (\(\hat{R}\)) and effective sample sizes
+(ESS)\cite{vehtari_rank-normalization_2019}.
+In general there is yet an established method for dynamical warmup assessment before transitioning to post-warmup sampling. For that we
+propose the following algorithm:
 \begin{ColFigure}
  \centering
  \includegraphics[width=\linewidth]{figure/cross_chain_diagram.pdf}
- \captionof{figure}{\emph{Cross-chain} algorithm is named after the fact that the chains communicate regularly during warmup.}
+ \captionof{figure}{Proposed \emph{cross-chain} warmup algorithm}
 \end{ColFigure}
 
 \begin{enumerate}
@@ -110,8 +113,8 @@ For example, with default window size \(w=100\), when warmup reaches iteration 2
 \(\hat{R}^i\) and \(\text{ESS}^i\) for \(i=1, 2\), so that
 \(\hat{R}^1\) and \(\text{ESS}^1\) are based on warmup iteration 1 to
 200, and \(\hat{R}^2\) and \(\text{ESS}^2\) are based on warmup iteration 101 to 200.
-\item At the end of window \(n\), with predefined target value
-  \(\hat{R}^{0}\) and ESS\(^{0}\), from \({1, \dots, n}\), select \(j\) with maximum $\text{ESS}^j$,
+\item At the end of window \(n\) with predefined target value
+  \(\hat{R}^{0}\) and ESS\(^{0}\), from \({1, \dots, n}\), select \(j\) with maximum $\text{ESS}^j$
 and calculate a new metric using samples from corresponding
 windows. Determine \emph{convergence} by checking if $\hat{R}^j < \hat{R}^0$ and $\text{ESS}^j > \text{ESS}^0$. 
 If converges, move to post-warmup sampling, otherwise repeat step 2.
@@ -120,9 +123,9 @@ If converges, move to post-warmup sampling, otherwise repeat step 2.
 
 \vspace{1em}
 Benchmarks are performed with different target ESS and
-regular Stan run(1000 warmup iterations).
-We run each setup with 10 PRNG seeds and collect average(barplot) and
-standard deviation(error bar) of the following quantities.
+regular Stan run (1000 warmup iterations).
+We run each setup with 10 random seeds and collect average (barplot) and
+standard deviation (error bar) of the following quantities.
 \begin{center}
 \footnotesize
 \begin{tabular}{l}
@@ -135,7 +138,7 @@ minimum ESS\(_{\text{bulk}}\) per iteration \\
 minimum ESS\(_{\text{tail}}\) per iteration \\
 minimum ESS\(_{\text{bulk}}\) per leapfrog step \\
 minimum ESS\(_{\text{tail}}\) per leapfrog step \\
-maximum wall time(in seconds) \\
+maximum wall time (in seconds) \\
 \hline
 \end{tabular}
 \end{center}
@@ -192,7 +195,7 @@ maximum wall time(in seconds) \\
 \subsection*{Method}
 \begin{center}
 \includegraphics[width=\linewidth]{./figure/within_chain_parallel_diagram.pdf}
-\captionof{figure}{Multilevel parallelism for ODE-based population models. A simplified version of Figure 1, the lower diagram shows the cross-chain warmup through multiple windows. In within-chain parallelization, as shown in the upper diagram, each chain has its own parameter samples(indicated by different colors), and dedicated processes for solving the population model. Thus the parallel computing is based on cross-chain level and within-chain level.\label{multilevel-diagram}}
+\captionof{figure}{Multilevel parallelism for population models based on ordinary differential equations (ODE). A simplified version of Figure 1, the lower diagram shows the cross-chain warmup through multiple windows. In within-chain parallelization, as shown in the upper diagram, each chain has its own parameter samples (indicated by different colors), and dedicated processes for solving the population model. Thus the parallel computing is based on cross-chain level and within-chain level.\label{multilevel-diagram}}
 \end{center}
 
 \begin{center}
@@ -212,12 +215,12 @@ Level & Parallel operation & Parallel communication \\
 We consider a time-to-event model for the time to the first grade 2+ peripheral neuropathy (PN)
 event in patients treated with an antibody-drug conjugate (ADC)
 delivering monomethyl auristatin E (MMAE). We call it
-Time-To-PN(TTPN) model, and analyze data using a
+Time-To-PN (TTPN) model, and analyze data using a
 simplified version of the model reported in
 \cite{lu_time--event_2017}. We consider three treatment arms:
 fauxlatuzumab vedotin 1.2, 1.8 and 2.4 mg/kg IV boluses q3w x 6 doses,
 with 20 patients per treatment arm. In this model,
-each patient's PK is described by an effective compartment model(one-compartment),
+each patient's PK is described by an effective compartment model (one-compartment),
 and PD by a linear model. The likelihood for time to first 2+ PN event
 is described by a hazard function that depends on the concentration
 effect through Weibull distribution. Two unknowns from
@@ -227,7 +230,7 @@ ODE system. Each evaluation of likelihood requires solving this
 
 ODEs corresponding to the entire
 population are solved by a single call of Torsten function \texttt{\texttt{pmx\_solve\_group\_rk45}}. The three parameters of the
-Torstenn model are:
+Torsten model are:
 \begin{itemize}
 \item \(k_{e0}\) in effective compartment model.
 \item \(\alpha\) the coefficient of linear PD model.
@@ -236,8 +239,8 @@ Torstenn model are:
 
 \subsubsection*{Warmup quality}
 Table \ref{tab:ttpn} shows cross-chain and
-regular run performance(target ESS = 400). Consistent with the
-previous benchmark models, the cross-chain warmup reduce total run time without
+regular run performance (target ESS = 400). Consistent with the
+previous benchmark models, the cross-chain warmup reduces total run time without
 compromising ESS, leading to ~15\% wall time improvement.
 
 \begin{center}
@@ -266,11 +269,11 @@ Speedup is investigated by running the model
 with 4 chains using \(n_{\text{proc}} = 4, 8, 16, 32, 60\)
 processes. Equivalently, there are
 1, 2, 4, 8, 15 processes per chain for within-chain parallelization.
-With population size 60, this is also equivalent to have each process handle the solution of
+With population size 60, this is also equivalent to having each process handle the solution of
 60, 30, 15, 8, 4 subjects' ODE system, respectively.
 \begin{itemize}
 \item Both muiltilevel and within-chain-only parallel runs scale near-linearly up to 60
-  processes(15 processes per chain \(\times\) 4 chains).
+  processes (15 processes per chain \(\times\) 4 chains).
 \item In the range of \(n_{\text{proc}}=32, 60, 80\), multilevel runs
   exhibit a steady \textasciitilde 20\% performance improvement, completely
   contributed by cross-chain warmup.
@@ -279,7 +282,7 @@ With population size 60, this is also equivalent to have each process handle the
 \begin{center}
 \includegraphics[width=\linewidth]{./figure/ttpn2_perf_benchmark.pdf}
 \captionof{figure}{Multilevel scheme parallel performance: TTPN
-  model(target ESS=400). Wall time speedup uses regular Stan run as reference. With all
+  model (target ESS=400). Wall time speedup uses regular Stan run as reference. With all
 runs having 1000 post-warmup sampling iterations, in
 multilevel runs the number of warmup iterations is determinted at
 runtime, while both within-chain parallel runs and regular Stan runs
@@ -309,21 +312,23 @@ after all chains finish.}
 %	CONCLUSION
 %----------------------------------------------------------------------------------------
 
-\headerbox{Conclusion and future work}{name=conclusion,column=3,below=multilevel}{
+\headerbox{Conclusion}{name=conclusion,column=3,below=multilevel}{
   \begin{itemize}
-  \item Multilevel parallelism significantly improves computational efficiency and extends
-    the range of models that may be practically implemented.
-  \item Our planed follow-up study is to seek higher efficiency by maintaining
-    target ESS while increasing the number of parallel chains during warmup.
+  \item Cross-chain warmup automates MCMC convergence assessment and
+    adaptive transition to sampling. It also produces comparable or
+    even better HMC tuning parameters. Benchmark shows the method is applicable to a
+    wide range of models.
+  \item Multilevel parallelism significantly improves population model inference performance.
+  % \item Follow-up study includes seeking higher efficiency by maintaining target ESS while increasing the number of parallel warmup chains.
   \end{itemize}
+
 }
 
 \headerbox{See also}{name=github_repo,headerborder=none,textborder=none,column=3,below=conclusion,above=bottom} {
 \begin{multicols}{2}
-\url{https://github.com/metrumresearchgroup/acop_2020_torsten_parallelization}
-for more benchmark examples and source code.
+\footnotesize{\url{https://github.com/metrumresearchgroup/acop_2020_torsten_parallelization}}
 \begin{flushright}
-\includegraphics[width=0.4\linewidth]{./figure/github_repo_qr_code.png}
+\includegraphics[width=0.2\linewidth]{./figure/github_repo_qr_code.png}
 \end{flushright}
 \end{multicols}  
 }
