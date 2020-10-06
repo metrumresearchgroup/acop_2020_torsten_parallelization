@@ -23,6 +23,8 @@
 \usepackage{tikz} % Required for flow chart
 \usetikzlibrary{shapes,arrows} % Tikz libraries required for the flow chart in the template
 
+\usepackage{vwcol}  
+
 \newcommand{\compresslist}{ % Define a command to reduce spacing within itemize/enumerate environments, this is used right after \begin{itemize} or \begin{enumerate}
 \setlength{\itemsep}{1pt}
 \setlength{\parskip}{0pt}
@@ -280,7 +282,7 @@ With population size 60, this is also equivalent to having each process handle t
 \end{itemize}
 
 \begin{center}
-\includegraphics[width=\linewidth]{./figure/ttpn2_perf_benchmark.pdf}
+\includegraphics[width=0.8\linewidth]{./figure/ttpn2_perf_benchmark.pdf}
 \captionof{figure}{Multilevel scheme parallel performance: TTPN
   model (target ESS=400). Wall time speedup uses regular Stan run as reference. With all
 runs having 1000 post-warmup sampling iterations, in
@@ -294,16 +296,17 @@ after all chains finish.}
 \end{center}
 
 \end{multicols}
-\vspace{0.5em}
+\vspace{0.2em}
 }
 
 %----------------------------------------------------------------------------------------
 %	REFERENCES
 %----------------------------------------------------------------------------------------
 
-\headerbox{References}{name=references,column=2,below=multilevel,above=bottom}{
+% \headerbox{\small References}{name=references,column=2,below=multilevel,above=bottom}{
+\headerbox{References}{name=references,column=2,below=multilevel}{
 \renewcommand{\section}[2]{\vskip 0.05em} % Get rid of the default "References" section title
-\footnotesize{ % Reduce the font size in this block
+\scriptsize{ % Reduce the font size in this block
 \bibliographystyle{siam}
 \bibliography{torsten} % Use torsten.bib as the bibliography file
 }}
@@ -321,32 +324,32 @@ after all chains finish.}
   \item Multilevel parallelism significantly improves population model inference performance.
   % \item Follow-up study includes seeking higher efficiency by maintaining target ESS while increasing the number of parallel warmup chains.
   \end{itemize}
-
 }
 
+%----------------------------------------------------------------------------------------
+%	SUPPLEMENTARY MATERIAL
+%----------------------------------------------------------------------------------------
+
 \headerbox{See also}{name=github_repo,headerborder=none,textborder=none,column=3,below=conclusion,above=bottom} {
-\begin{multicols}{2}
-\footnotesize{\url{https://github.com/metrumresearchgroup/acop_2020_torsten_parallelization}}
-\begin{flushright}
-\includegraphics[width=0.2\linewidth]{./figure/github_repo_qr_code.png}
-\end{flushright}
-\end{multicols}  
+ \begin{vwcol}[widths={0.85,0.15}, sep=.4cm,rule=0pt]
+ \scriptsize \url{github.com/metrumresearchgroup/acop_2020_torsten_parallelization}
+\includegraphics[width=0.15\linewidth]{./figure/github_repo_qr_code.png}
+ \end{vwcol} 
+% \scriptsize\url{github.com/metrumresearchgroup/acop_2020_torsten_parallelization}
+% \begin{multicols}{2}
+% \scriptsize\url{github.com/metrumresearchgroup/acop_2020_torsten_parallelization}
+% \begin{flushright}
+% \includegraphics[width=0.2\linewidth]{./figure/github_repo_qr_code.png}
+% \end{flushright}
+% \end{multicols}
 }
 
 %----------------------------------------------------------------------------------------
 %	CONTACT INFORMATION
 %----------------------------------------------------------------------------------------
 
-% \headerbox{Contact Information}{name=contact,column=3,aligned=references,above=bottom}{ % This block is as tall as the references block
-
-% \begin{description}\compresslist
-% \item[Web] www.university.edu/smithlab
-% \item[Email] john@smith.com
-% \item[Phone] +1 (000) 111 1111
-% \end{description}
-% }
-
-
+\headerbox{\small Presented at ACOP11 Meeting; 9 -13 November, 2020. Copies available at: www.metrumrg.com/publications \copyright\ Metrum Research Group 2020 }
+{name=footer,column=2,span=2,below=references,textborder=none,headershape=rectangle,headerborder=none}{}
 
 
 %----------------------------------------------------------------------------------------
